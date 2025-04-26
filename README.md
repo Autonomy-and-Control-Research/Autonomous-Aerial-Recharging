@@ -1,2 +1,2 @@
 # Autonomous-Aerial-Recharging
-Objective is to proof the theory behind aerial recharging between UAS and its applications in civil and defense industry
+Research the applications of aerial recharging of Unmanned Aerial Systems (UAS) and its potential breakthroughs in civil and defense UAS industry.
