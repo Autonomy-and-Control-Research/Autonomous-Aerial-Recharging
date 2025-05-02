@@ -1,0 +1,73 @@
+import numpy as np
+
+def smooth_rrt_path(path, NFZ_centers, NFZ_radii, cost_type, alpha, beta, v):
+    cost_type = 'euclidean'
+    beta = 50
+
+    if path is None or len(path) <= 2:
+        return path
+
+    smoothed_path = path.copy()
+    N = len(smoothed_path)
+    i = 0
+
+    while i < N - 1:
+        improved = False
+        for j in range(N - 1, i + 1, -1):
+            a = smoothed_path[i]
+            b = smoothed_path[j]
+
+            if not segment_in_nfz(a, b, NFZ_centers, NFZ_radii):
+                shortcut_cost = edge_cost(a, b, cost_type, alpha, beta, v)
+                subpath_cost = sum(
+                    edge_cost(smoothed_path[k], smoothed_path[k + 1], cost_type, alpha, beta, v)
+                    for k in range(i, j)
+                )
+
+                if shortcut_cost <= subpath_cost:
+                    smoothed_path = np.vstack((smoothed_path[:i+1], smoothed_path[j:]))
+                    N = len(smoothed_path)
+                    improved = True
+                    break
+
+        if not improved:
+            i += 1
+
+    if len(smoothed_path) >= 3:
+        p1 = smoothed_path[-3]
+        p2 = smoothed_path[-2]
+        p3 = smoothed_path[-1]
+
+        v1 = p3 - p2
+        v2 = p2 - p1
+        cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
+        angle = np.arccos(np.clip(cos_theta, -1, 1))
+        max_arrival_angle = np.pi / 4
+
+        if angle > max_arrival_angle:
+            smoothed_path[-3:] = np.vstack((p1, p2, p3))
+
+    return smoothed_path
+
+def segment_in_nfz(a, b, centers, radii):
+    for c, r in zip(centers, radii):
+        if point_to_segment_distance(c, a, b) < r:
+            return True
+    return False
+
+def point_to_segment_distance(c, a, b):
+    ab = b - a
+    t = np.clip(np.dot(c - a, ab) / np.dot(ab, ab), 0, 1)
+    proj = a + t * ab
+    return np.linalg.norm(c - proj)
+
+def edge_cost(p1, p2, cost_type, alpha, beta, v):
+    delta = p2 - p1
+    if cost_type == 'euclidean':
+        return np.linalg.norm(delta)
+    elif cost_type == 'time':
+        return np.linalg.norm(delta) / v
+    elif cost_type == 'energy':
+        return alpha * np.linalg.norm(delta[:2]) + beta * abs(delta[2])
+    else:
+        raise ValueError("Unknown cost type")
