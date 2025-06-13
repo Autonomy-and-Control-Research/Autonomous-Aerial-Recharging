@@ -1,3 +1,9 @@
+// ----------------------------------------------------------------
+// Objective:
+// Control a bipolar stepper motor using two full H-bridge channels
+// ----------------------------------------------------------------
+
+// Typical pin definitions for a TB6612FNG or L298N dual H-bridge
 #define AIN1 4
 #define AIN2 5
 #define PWMA 9
