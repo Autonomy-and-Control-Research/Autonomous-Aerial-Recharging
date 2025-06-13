@@ -1,13 +1,22 @@
+# --------------------------
+# Objective: Coordinates the autonomous docking of two drones (Receiver and Supplier), while avoiding 
+# No-Fly Zones (NFZs) and minimizing a cost function by:
+# 1). Calling an RRT*-based planner to find a safe efficient docking point
+# 2). If that fails, falling back to a failsafe planner that tries progressively larger search boxes
+# 3). Generating smooth, obstacle-free flight paths for both drones to reach the docking point
+# 4). Returning the docking point, paths, and total cost
+# --------------------------
+                                             
 import numpy as np
 from get_docking_rrt_star import get_docking_rrt_star
 from get_docking_failsafe import get_docking_failsafe
 from smooth_path import smooth_rrt_path
 
 def compute_optimal_docking_path(
-    posR, posS, vR, vS,
-    NFZ_centers, NFZ_radii,
-    bounds, cost_type='energy',
-    alpha=1.0, beta=10.0, v=5
+    posR, posS, vR, vS, 
+    NFZ_centers, NFZ_radii, 
+    bounds, cost_type='energy', 
+    alpha=1.0, beta=10.0, v=5 
 ):
     """
     Computes optimal docking point and drone paths using RRT*+ or fallback method.
@@ -48,10 +57,27 @@ def compute_optimal_docking_path(
     docking_cost : float
         Total normalized cost for docking decision.
     """
+    # -------------------------------
+    # get_docking_rrt_star Objective: 
+    # Find a shared docking point, plan a single path that both drones can split and follow, and return the best_idx 
+    # so each drone knows where to start/stop on that shared path. If that works: 
+    # 1). Separate the two drones' paths at the midpoint, best_idx
+    # 2). Add a vertical "z-separation" to keep drones from colliding at docking
+    # 3). Smooths both paths
+    # -------------------------------
+    
     docking_point, docking_cost, best_idx, path_rrt = get_docking_rrt_star(
         posR, posS, NFZ_centers, NFZ_radii, bounds, cost_type, alpha, beta
     )
 
+    # -------------------------------
+    # get_docking_rrt_star Objective: 
+    # This planner expands the search area gradually (by increasing xmar/y/zmar) ... It tries up to 7 times
+    # If successful:
+    # 1). Place the receiver slightly above the docking point
+    # 2). The supplier goes slightly below
+    # If all else fails, it returns “do nothing” paths (i.e., just hover at original positions).
+    
     if docking_point is None:
         dx = dy = dz = 1
         visited_keys = set()
@@ -100,6 +126,13 @@ def compute_optimal_docking_path(
         pathR = np.vstack([posR, path_rrt[1:best_idx], receiver_final])
         pathS = np.vstack([posS, path_rrt[best_idx+1:][::-1], supplier_final])
 
+        # -------------------------------
+        # smooth_rrt_path Objective: 
+        # Interpolate points between waypoints
+        # Check and avoid NFZ collisions
+        # Optimize energy/time efficiency
+        # -------------------------------
+        
         pathR = smooth_rrt_path(pathR, NFZ_centers, NFZ_radii, cost_type, alpha, beta, v)
         pathS = smooth_rrt_path(pathS, NFZ_centers, NFZ_radii, cost_type, alpha, beta, v)
 
