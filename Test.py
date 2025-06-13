@@ -1,3 +1,8 @@
+# -----------------------------
+# Description: Simulate and visualize an autonomous drone docking algorithm 
+# in a 3D space, with obstacle avoidance and cost-based path planning
+# -----------------------------
+
 import numpy as np
 import matplotlib.pyplot as plt
 from path_planning import compute_optimal_docking_path
@@ -5,25 +10,36 @@ from path_planning import compute_optimal_docking_path
 # -----------------------------
 # Example Scenario Setup
 # -----------------------------
-posR = np.array([10, 10, 5])
-posS = np.array([30, 30, 5])
-vR = 5
+
+# Fly at 5 m/s and start in different parts of the space
+posR = np.array([10, 10, 5]) # Receiver drone
+posS = np.array([30, 30, 5]) # Supplier drone
+vR = 5 
 vS = 5
 
-NFZ_centers = np.array([
+# 3D No-Fly Zones (NFZs) w/ spherical obstacles
+NFZ_centers = np.array([ 
     [20, 20, 5],
     [15, 15, 8],
     [25, 10, 6]
 ])
 NFZ_radii = np.array([4, 5, 6])
 
+# 
 bounds = {
     'x': [0, 40],
     'y': [0, 40],
     'z': [0, 20]
 }
 
-# Call the docking path planner
+# -----------------------------
+# Objective: 
+# - Search for a valid docking point
+# - Plan obstacle-free trajectories from posR and posS to the docking point
+# - Evaluate and return the cost (based on distance or energy)
+# -----------------------------
+
+# Call the docking path planner (IMPORTANT)
 docking_point, pathR, pathS, docking_cost = compute_optimal_docking_path(
     posR, posS, vR, vS,
     NFZ_centers, NFZ_radii,
@@ -32,8 +48,9 @@ docking_point, pathR, pathS, docking_cost = compute_optimal_docking_path(
 )
 
 # -----------------------------
-# Visualization
+# Visualization via matplotlib
 # -----------------------------
+
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 ax.set_title(f'Docking Point Found. Cost = {docking_cost:.3f}')
