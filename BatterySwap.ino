@@ -7,14 +7,15 @@
 unsigned long startTime = 0;
 bool motorActivated = false;
 
-#define SWITCH_PIN 13  // Digital input from FC AUX/PWM channel (for CH7 passthrough)
 #define AIN1 4
 #define AIN2 5
-#define PWMA 9
 #define BIN1 6
 #define BIN2 7
-#define PWMB 10
+#define PWMA 9
 #define STBY 8 
+#define PWMB 10
+#define SWITCH_PIN 13  // Digital input from FC AUX/PWM channel (for CH7 passthrough)
+
 
 // Global variables to track motor and remote state
 double travelDistance = 4; // [cm]
