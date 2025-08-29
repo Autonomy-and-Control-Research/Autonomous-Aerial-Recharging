@@ -1,12 +1,10 @@
 // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-
 // Battery swapping code
-// Jamie Henson
-// Updated as of July 16th, 2025
+// Jamie Henson & Abhi
+// Updated as of Aug 28th, 2025
 // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-
 
-unsigned long startTime = 0;
-bool motorActivated = false;
-
+// Define global pins
 #define AIN1 4
 #define AIN2 5
 #define BIN1 6
@@ -14,14 +12,25 @@ bool motorActivated = false;
 #define PWMA 9
 #define STBY 8 
 #define PWMB 10
+#define HALL_SENSOR_1_PIN 11
+#define HALL_SENSOR_2_PIN 12
 #define SWITCH_PIN 13  // Digital input from FC AUX/PWM channel (for CH7 passthrough)
 
+// Define global variables for Hall Effect sensors
+int hallSensor1Value = 0;
+int hallSensor2Value = 0;
 
 // Global variables to track motor and remote state
 double travelDistance = 4; // [cm]
 double gearDiameter = 3; // [cm]
 int gearBoxRatio = 19;
-int stepRev = 70; // RNG
+int stepRev = 70; // Calculated number ??? <--- Check before flight
+unsigned long startTime = 0;
+bool motorActivated = false;
+
+// Global variables for docking
+unsigned long dockedStartTime = 0;
+bool dockingConfirmed = false;
 
 // Find how many output shaft revolutions needed for travel distance wanted
 int pitch = gearDiameter * 3.14159;
@@ -35,10 +44,15 @@ int steps = revolutions * gearBoxRatio * stepRev;
 int lastState = 0; // 0=OFF, 1=CW, -1=CCW
 
 void setup() {
-  // Begin the timer
-  startTime = millis();
+  // Set up baud rate
+  Serial.begin(9600);
 
-  // Set up motor driver pins
+  // Begin the timer
+  unsigned long currentTime = millis();
+
+  // Set up pins
+  pinMode(HALL_SENSOR_1_PIN, INPUT);
+  pinMode(HALL_SENSOR_2_PIN, INPUT);
   pinMode(AIN1, OUTPUT);
   pinMode(AIN2, OUTPUT);
   pinMode(BIN1, OUTPUT);
@@ -46,17 +60,12 @@ void setup() {
   pinMode(PWMA, OUTPUT);
   pinMode(PWMB, OUTPUT);
   pinMode(STBY, OUTPUT);
-
-  // Set up reciever pins
   pinMode(SWITCH_PIN, INPUT);
 
   // Enable motor driver
   digitalWrite(STBY, HIGH); 
   analogWrite(PWMA, 255);   // Set max speed for A
   analogWrite(PWMB, 255);   // Set max speed for B
-
-  // Start the receiver
-  Serial.begin(9600);
 
   // Down here is for testing 
   // |+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-|
@@ -71,19 +80,41 @@ void setup() {
   // stepMotorCCW(); 
   // Serial.println("CCW");
   // delay(2000);
-
   // |+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-|
 }
 
 void loop() {
+  // Read and store sensor data value (0 = contact and 1 = no contact)
+  hallSensor1Value = readHallDebounced(HALL_SENSOR_1_PIN);
+  hallSensor2Value = readHallDebounced(HALL_SENSOR_2_PIN);
+  Serial.println("Sensor 1 value = " + String(hallSensor1Value));
+  Serial.println("Sensor 2 value = " + String(hallSensor2Value));
   
-  unsigned long currentTime = millis();
+  if(hallSensor1Value == 0 && hallSensor2Value == 0){
+    if(!dockingConfirmed){
+        dockedStartTime = millis();
+        dockingConfirmed = true;
+    } 
+    else if(millis() - dockedStartTime >= 3000){
+        // 3 seconds passed, start swap
+        startBatterySwap();
+    }
+  } 
+  else {
+    dockingConfirmed = false; // reset if contact lost
+  }
+}
 
-  // Here is code for RC remote |+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-|
-  int pwm = pulseIn(SWITCH_PIN, HIGH, 25000); // Read RC PWM
+int readHallDebounced(int pin) {
+    int val = digitalRead(pin);
+    delay(5);  // 5 ms debounce
+    int val2 = digitalRead(pin);
+    return (val == val2) ? val : 1; // Default to "no contact" if bouncing
+}
 
-  Serial.print("PWM: ");
-  Serial.println(pwm);
+void startBatterySwap() {
+  // Read RC PWM
+  int pwm = pulseIn(SWITCH_PIN, HIGH, 25000); 
 
   int currentState = 0;
   if (pwm > 1800) {
@@ -110,7 +141,7 @@ void loop() {
 }
 
 void stepMotorCW() {
-  int stepDelay = 1; // Adjust speed if you want
+  int stepDelay = 3; // Adjust speed if you want
   for (int i = 0; i < steps; i++) {
     // Step a
     digitalWrite(AIN1, HIGH); digitalWrite(AIN2, LOW);
@@ -135,7 +166,7 @@ void stepMotorCW() {
 }
 
 void stepMotorCCW() {
-  int stepDelay = 1;  // Adjust speed if you want
+  int stepDelay = 3;  // Adjust speed if you want
   for (int i = 0; i < steps; i++) {
     // Step a
     digitalWrite(AIN1, HIGH); digitalWrite(AIN2, LOW);
@@ -158,6 +189,3 @@ void stepMotorCCW() {
     delay(stepDelay);
   }
 }
-
-
-
